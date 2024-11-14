@@ -6,7 +6,7 @@ source pyannote-env/bin/activate
 # 필요한 패키지 재설치
 pip install pyannote.audio
 pip install openai-whisper
-pip install git+https://github.com/yinruiqing/pyannote-whisper
+pip install git+https://github.com/keisokoo/pyannote-whisper
 pip install python-dotenv
 
 # numpy 버전 다운그레이드
