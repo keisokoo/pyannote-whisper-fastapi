@@ -36,3 +36,6 @@ curl -X POST "http://localhost:8000/transcribe" \
      -F "no_speech_threshold=0.6" \
      -F "initial_prompt=다음은 한국어 대화입니다."
 ```
+
+# 배포 방법 1 GCP
+# 배포 방법 2 HUGGING FACE
