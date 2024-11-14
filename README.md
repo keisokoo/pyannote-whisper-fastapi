@@ -18,7 +18,8 @@ python main.py
 
 ```shell
 # 환경 변수 설정
-export HUGGING_FACE_TOKEN=<your_hugging_face_token>
+.env
+HUGGING_FACE_TOKEN=<your_hugging_face_token>
 # api 의존성
 pip install fastapi python-multipart uvicorn
 
