@@ -181,7 +181,7 @@ def try_diarization(file_path: str, speaker_count: int):
 async def transcribe_audio(
     file: UploadFile = File(...),
     speaker_count: int = Form(default=2),
-    language: str = Form(default="ko"),
+    language: str = Form(default=None),
     temperature: float = Form(default=0.0),
     no_speech_threshold: float = Form(default=0.6),
     initial_prompt: str = Form(default="다음은 한국어 대화입니다."),
@@ -246,6 +246,7 @@ async def transcribe_audio(
                 condition_on_previous_text=True,
                 fp16=False
             )
+            print(f"Detected language: {asr_result['language']}")
             print("Transcription completed")
 
             # 화자 분리 수행 (실패시 WAV 변환 후 재시도)

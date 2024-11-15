@@ -202,3 +202,59 @@ sudo systemctl restart fastapi
 각 파일 형식은 실제 파일 MIME 타입을 검사하여 검증됩니다. 파일 확장자 변경으로 우회할 수 없습니다.
 
 **참고**: 화자 분리(Pyannote)가 지원되지 않는 형식의 경우, 자동으로 WAV 형식으로 변환하여 처리합니다. 이 경우 처리 시간이 약간 증가할 수 있습니다.
+
+## API 요청 형식
+
+### POST /transcribe
+
+**Content-Type**: `multipart/form-data`
+
+#### Request Parameters
+
+| 필드 | 타입 | 필수 | 기본값 | 설명 |
+|------|------|------|--------|------|
+| file | File | ✓ | - | 오디오 파일 |
+| speaker_count | Integer | | 2 | 화자 수 |
+| language | String | | null | 언어 코드 (null: 자동감지) |
+| temperature | Float | | 0.0 | 생성 다양성 (0.0~1.0) |
+| no_speech_threshold | Float | | 0.6 | 무음 감지 임계값 |
+| initial_prompt | String | | "다음은 한국어 대화입니다." | 초기 프롬프트 |
+
+#### Headers
+
+| 헤더 | 필수 | 설명 |
+|------|------|------|
+| Authorization | ✓ | JWT 토큰 또는 테스트 토큰 |
+
+#### 예제 요청
+```bash
+curl -X POST "http://localhost:8088/transcribe" \
+     -H "accept: application/json" \
+     -H "Authorization: your_token_here" \
+     -F "file=@audio.wav" \
+     -F "speaker_count=3" \
+     -F "language=ko" \
+     -F "temperature=0.0" \
+     -F "no_speech_threshold=0.6" \
+     -F "initial_prompt=다음은 한국어 대화입니다."
+```
+
+#### 응답 형식
+```json
+{
+    "results": [
+        {
+            "speaker": 0,
+            "start": 0.0,
+            "end": 2.5,
+            "text": "안녕하세요."
+        },
+        {
+            "speaker": 1,
+            "start": 2.8,
+            "end": 4.2,
+            "text": "네, 안녕하세요."
+        }
+    ]
+}
+```
