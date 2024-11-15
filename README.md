@@ -81,29 +81,34 @@ gcloud compute instances add-access-config 인스턴스이름 \
     --address 외부아이피
 
     
-# nginx 설치
-sudo apt install nginx
+# Caddy 설치
+## apt repository 추가
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
 
-# nginx 설정
-sudo nano /etc/nginx/sites-available/도메인명
+sudo apt update
+sudo apt install caddy
 
-server {
-    listen 80;
-    server_name 도메인명;
+sudo vi /etc/caddy/Caddyfile
 
-    location / {
-        proxy_pass http://localhost:8088;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+api.yourdomain.com {
+    reverse_proxy localhost:8088
+    
+    # 큰 파일 업로드 설정
+    request_body {
+        max_size 1GB
     }
 }
 
-# 설정 활성화
-sudo ln -s /etc/nginx/sites-available/도메인명 /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
+# Caddy 시작
+sudo systemctl restart caddy
+sudo systemctl enable caddy
 
+# 상태 확인
+sudo systemctl status caddy
 
+# 서비스 파일 생성
 sudo vi /etc/systemd/system/fastapi.service
 ```
 [Unit]
@@ -131,7 +136,7 @@ sudo systemctl status fastapi
 sudo journalctl -u fastapi -f
 
 
-curl -X POST "http://도메인주소/transcribe" \
+curl -X POST "도메인주소/transcribe" \
   -H "accept: application/json" \
   -F "file=@audio.wav" \
   -F "speaker_count=3" \
