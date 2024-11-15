@@ -2,6 +2,42 @@
 
 음성 파일에서 화자를 분리하고 텍스트로 변환하는 API 서버입니다.
 
+## 빠른 시작 가이드
+
+### 1. 필수 준비사항
+- Python 3.11 이상
+- Conda
+- Hugging Face 토큰 (https://huggingface.co/settings/tokens)
+
+### 2. 자동 설치 스크립트 실행
+```bash
+# 설치 스크립트 실행
+chmod +x install.sh
+./install.sh
+
+# Caddy 설정 스크립트 실행 (도메인이 있는 경우)
+chmod +x setup_caddy.sh
+./setup_caddy.sh
+```
+
+### 3. 설정 필요 항목
+1. `.env` 파일에 토큰 설정
+   - HUGGING_FACE_TOKEN
+   - JWT_SECRET
+   - TEST_TOKEN
+2. DNS 설정 (도메인 사용시)
+   - 도메인을 서버 IP로 연결
+
+### 4. 서비스 시작
+```bash
+sudo systemctl start fastapi
+sudo systemctl start caddy  # 도메인 사용시
+```
+
+## 상세 설치 및 설정 가이드
+
+이하 내용은 수동 설치 및 설정에 대한 상세 가이드입니다.
+
 ## 로컬 개발 환경 설정
 
 ### 1. 가상환경 설정
