@@ -6,17 +6,31 @@ from pyannote.core import Segment
 from dotenv import load_dotenv
 import os
 import json
+import torch
 
 def load_whisper_model(model_name: str = "large-v3-turbo") -> whisper.Whisper:
     """Whisper 모델을 로드합니다."""
-    return whisper.load_model(model_name)
+    # MPS 사용 가능 여부 확인
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    print(f"Using device: {device}")
+    
+    model = whisper.load_model(model_name)
+    if device == "mps":
+        model.to(device)
+    return model
 
 def get_pipeline(auth_token: str) -> Pipeline:
     """화자 분리 파이프라인을 초기화합니다."""
-    return Pipeline.from_pretrained(
+    # MPS 사용 가능 여부 확인
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    
+    pipeline = Pipeline.from_pretrained(
         "pyannote/speaker-diarization-3.1",
         use_auth_token=auth_token
     )
+    if device == "mps":
+        pipeline.to(torch.device(device))
+    return pipeline
 
 def transcribe_audio(
     model: whisper.Whisper,
@@ -25,13 +39,14 @@ def transcribe_audio(
 ) -> Dict[str, Any]:
     """오디오 파일을 텍스트로 변환합니다."""
     default_options = {
-        "language": "ko",                    # 언어 설정
-        "temperature": 0,                    # 생성 다양성 (0: 결정적)
-        "no_speech_threshold": 0.6,          # 무음 감지 임계값
-        "initial_prompt": "다음은 한국어 대화입니다.",  # 초기 프롬프트
-        "word_timestamps": True,             # 단어별 타임스탬프 활성화
-        "condition_on_previous_text": True,  # 이전 텍스트 참조
-        "fp16": False                        # 16비트 부동소수점 비활성화
+        "language": "ko",
+        "temperature": 0,
+        "no_speech_threshold": 0.6,
+        "initial_prompt": "다음은 한국어 대화입니다.",
+        "word_timestamps": True,
+        "condition_on_previous_text": True,
+        "fp16": False,
+        "device": "mps" if torch.backends.mps.is_available() else "cpu"
     }
     
     if options:

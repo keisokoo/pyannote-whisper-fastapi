@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
+FROM python:3.10-slim
 
 # 시간대 설정을 비대화형으로 변경
 ENV DEBIAN_FRONTEND=noninteractive
@@ -10,8 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   git \
   && rm -rf /var/lib/apt/lists/*
 
-# Python 패키지 설치
+# Python 패키지 설치 (PyTorch CPU 버전 명시)
 RUN pip install --no-cache-dir 'numpy<2.0' && \
+  pip install --no-cache-dir \
+  torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
   pip install --no-cache-dir \
   fastapi \
   uvicorn \

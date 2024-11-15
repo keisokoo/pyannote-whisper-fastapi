@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import os
 import tempfile
 import json
+import torch
 
 app = FastAPI()
 
@@ -22,11 +23,30 @@ auth_token = os.getenv('HUGGING_FACE_TOKEN')
 if not auth_token:
     raise ValueError("HUGGING_FACE_TOKEN이 설정되지 않았습니다.")
 
+# 디바이스 선택 로직 수정
+def get_device():
+    if torch.cuda.is_available():
+        return "cuda"
+    elif torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+# 디바이스 설정
+device = get_device()
+print(f"Using device: {device}")
+
+# Whisper 모델 초기화 및 디바이스 설정
 whisper_model = whisper.load_model("large-v3-turbo")
+if device != "cpu":
+    whisper_model.to(device)
+
+# Pipeline 초기화 및 디바이스 설정
 pipeline = Pipeline.from_pretrained(
     "pyannote/speaker-diarization-3.1",
     use_auth_token=auth_token
 )
+if device != "cpu":
+    pipeline.to(torch.device(device))
 
 def format_results(diarization_results) -> Dict[str, Any]:
     """화자 분리 결과를 JSON 형식으로 변환합니다."""
@@ -111,4 +131,4 @@ async def transcribe_audio(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)

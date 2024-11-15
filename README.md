@@ -27,7 +27,7 @@ pip install fastapi python-multipart uvicorn
 python api.py
 
 # 테스트
-curl -X POST "http://localhost:8000/transcribe" \
+curl -X POST "http://localhost:8080/transcribe" \
      -H "accept: application/json" \
      -F "file=@audio.wav" \
      -F "speaker_count=3" \
@@ -40,6 +40,7 @@ curl -X POST "http://localhost:8000/transcribe" \
 # 배포 방법 1 GCP
 # 현재 디렉토리에서
 docker build -t speaker-diarization .
+docker build --platform linux/amd64 -t speaker-diarization-amd64 .
 # HUGGING_FACE_TOKEN을 환경변수로 전달
 docker run -p 8080:8080 -e HUGGING_FACE_TOKEN=your_token speaker-diarization
 # 프로젝트 ID 설정
@@ -91,3 +92,9 @@ gcloud run deploy speaker-diarization \
   --allow-unauthenticated \
   --gpu-type=nvidia-tesla-t4 \
   --gpu-count=1
+
+
+# 맥 테스트
+docker build -f Dockerfile-cpu -t speaker-diarization-mac .
+# 컨테이너 실행 시
+docker run -p 8080:8080 -e HUGGING_FACE_TOKEN=your_token speaker-diarization-mac
