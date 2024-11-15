@@ -77,6 +77,12 @@ JWT_ALGORITHM = "HS256"
 def verify_jwt_token(token: str) -> bool:
     """JWT 토큰을 검증합니다."""
     try:
+        # Bearer 토큰 처리
+        if token.startswith("Bearer "):
+            token = token.split(" ")[1]
+        elif not token:
+            return False
+            
         # PyJWT의 decode 메서드 사용
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         return True
@@ -134,7 +140,7 @@ async def transcribe_audio(
     # 파일 내용 읽기
     content = await file.read()
     print(f"Request received. file name: {file.filename}, file size: {len(content)}")
-    
+
     # 파일 형식 검증
     if not is_allowed_file(content):
         raise HTTPException(
