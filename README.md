@@ -27,7 +27,7 @@ pip install fastapi python-multipart uvicorn
 python api.py
 
 # 테스트
-curl -X POST "http://localhost:8080/transcribe" \
+curl -X POST "http://localhost:8088/transcribe" \
      -H "accept: application/json" \
      -F "file=@audio.wav" \
      -F "speaker_count=3" \
@@ -37,64 +37,25 @@ curl -X POST "http://localhost:8080/transcribe" \
      -F "initial_prompt=다음은 한국어 대화입니다."
 ```
 
-# 배포 방법 1 GCP
-# 현재 디렉토리에서
-docker build -t speaker-diarization .
-docker build --platform linux/amd64 -t speaker-diarization-amd64 .
-# HUGGING_FACE_TOKEN을 환경변수로 전달
-docker run -p 8080:8080 -e HUGGING_FACE_TOKEN=your_token speaker-diarization
-# 프로젝트 ID 설정
-export PROJECT_ID=your-project-id
+# 배포 VM Compute engine
 
-# Artifact Registry에 Docker 저장소 생성
-gcloud artifacts repositories create speaker-diarization \
-    --repository-format=docker \
-    --location=asia-northeast3 \
-    --description="Speaker Diarization API"
-
-# 이미지에 태그 지정
-docker tag speaker-diarization \
-    asia-northeast3-docker.pkg.dev/$PROJECT_ID/speaker-diarization/api:v1
-
-# 이미지 푸시
-docker push asia-northeast3-docker.pkg.dev/$PROJECT_ID/speaker-diarization/api:v1
-
-# Cloud Run에 배포:
-gcloud run deploy speaker-diarization \
-  --image asia-northeast3-docker.pkg.dev/$PROJECT_ID/speaker-diarization/api:v1 \
-  --platform managed \
-  --region asia-northeast3 \
-  --memory 4Gi \
-  --cpu 2 \
-  --port 8080 \
-  --min-instances 0 \
-  --max-instances 10 \
-  --set-env-vars "HUGGING_FACE_TOKEN=your_token" \
-  --allow-unauthenticated
-
-<!-- memory 4Gi: 메모리 할당
-cpu 2: CPU 코어 수
-min-instances 0: Serverless (요청 없을 때 0개)
-max-instances 10: 최대 인스턴스 수
-allow-unauthenticated: 공개 접근 허용 -->
-
-# GPU 추가 (필요한 경우):
-gcloud run deploy speaker-diarization \
-  --image asia-northeast3-docker.pkg.dev/$PROJECT_ID/speaker-diarization/api:v1 \
-  --platform managed \
-  --region asia-northeast3 \
-  --memory 4Gi \
-  --cpu 2 \
-  --port 8080 \
-  --min-instances 0 \
-  --max-instances 10 \
-  --set-env-vars "HUGGING_FACE_TOKEN=your_token" \
-  --allow-unauthenticated \
-  --gpu-type=nvidia-tesla-t4 \
-  --gpu-count=1
+conda create -n pyannote python=3.11
+conda activate pyannote
 
 
-# 맥 테스트
-docker build -f Dockerfile-cpu -t speaker-diarization-mac .
-# 컨테이너 실행 시
-docker run -p 8080:8080 -e HUGGING_FACE_TOKEN=your_token speaker-diarization-mac
+pip install pyannote.audio openai-whisper git+https://github.com/keisokoo/pyannote-whisper python-dotenv fastapi python-multipart uvicorn
+
+pip uninstall numpy
+pip install 'numpy<2.0'
+
+python api.py
+
+VPC 방화벽 규칙 생성 (콘솔에서):
+gcloud compute firewall-rules create allow-fastapi \
+    --direction=INGRESS \
+    --priority=1000 \
+    --network=default \
+    --action=ALLOW \
+    --rules=tcp:8088 \
+    --source-ranges=0.0.0.0/0 \
+    --target-tags=http-server

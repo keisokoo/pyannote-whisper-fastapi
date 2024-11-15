@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
+FROM python:3.11-slim
 
 # 시간대 설정을 비대화형으로 변경
 ENV DEBIAN_FRONTEND=noninteractive
@@ -10,8 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   git \
   && rm -rf /var/lib/apt/lists/*
 
-# Python 패키지 설치
+# Python 패키지 설치 (PyTorch MPS 지원 버전)
 RUN pip install --no-cache-dir 'numpy<2.0' && \
+  pip install --no-cache-dir \
+  torch torchvision torchaudio && \
   pip install --no-cache-dir \
   fastapi \
   uvicorn \
@@ -28,7 +30,8 @@ WORKDIR /app
 COPY api.py .
 
 # 포트 설정
-EXPOSE 8080
+ENV PORT=8088
+EXPOSE 8088
 
 # 실행
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8088"] 
