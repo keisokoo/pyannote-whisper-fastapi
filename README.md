@@ -182,10 +182,23 @@ sudo systemctl restart fastapi
 ```
 
 ## 지원하는 파일 형식
+
+### 모든 기능 지원 (음성 인식 + 화자 분리)
 - WAV (audio/wav, audio/x-wav)
 - MP3 (audio/mpeg, audio/mp3)
-- M4A (audio/m4a, audio/mp4, audio/x-m4a)
 - FLAC (audio/flac)
 - OGG (audio/ogg)
 
+### 음성 인식만 지원 (Whisper)
+- M4A (audio/m4a, audio/mp4, audio/x-m4a)
+- AIFF (audio/aiff, audio/x-aiff)
+- OPUS (audio/opus)
+- WebM (audio/webm, video/webm)
+- MP4 (video/mp4)
+- AVI (video/x-msvideo)
+- MOV (video/quicktime)
+- MKV (video/x-matroska)
+
 각 파일 형식은 실제 파일 MIME 타입을 검사하여 검증됩니다. 파일 확장자 변경으로 우회할 수 없습니다.
+
+**참고**: 화자 분리(Pyannote)가 지원되지 않는 형식의 경우, 자동으로 WAV 형식으로 변환하여 처리합니다. 이 경우 처리 시간이 약간 증가할 수 있습니다.
