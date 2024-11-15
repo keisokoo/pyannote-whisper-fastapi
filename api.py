@@ -92,10 +92,12 @@ def verify_jwt_token(token: str) -> bool:
 ALLOWED_MIME_TYPES = {
     'audio/wav', 'audio/x-wav',
     'audio/mpeg', 'audio/mp3',
-    'audio/m4a', 'audio/mp4',
-    'audio/x-m4a',
+    'audio/m4a', 'audio/mp4', 'audio/x-m4a',
     'audio/ogg',
-    'audio/flac'
+    'audio/flac',
+    'video/mp4',
+    'video/webm',           # WebM 비디오
+    'audio/webm'            # WebM 오디오
 }
 
 def is_allowed_file(file_content: bytes) -> bool:
