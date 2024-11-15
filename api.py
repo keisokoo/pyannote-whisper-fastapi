@@ -12,6 +12,7 @@ import torch
 import jwt
 from datetime import datetime, timedelta
 import magic
+import subprocess
 
 app = FastAPI()
 
@@ -133,6 +134,49 @@ MIME_TO_EXT = {
     'video/x-matroska': '.mkv'
 }
 
+def try_diarization(file_path: str, speaker_count: int):
+    """화자 분리를 시도하고, 실패시 WAV로 변환하여 재시도"""
+    try:
+        # 먼저 원본 파일로 시도
+        return pipeline(
+            file_path,
+            min_speakers=speaker_count,
+            max_speakers=speaker_count
+        )
+    except Exception as e:
+        print(f"Original format diarization failed: {str(e)}")
+        print("Trying with WAV conversion...")
+        
+        # WAV로 변환
+        wav_path = file_path + '.wav'
+        try:
+            subprocess.run([
+                'ffmpeg', '-i', file_path,
+                '-acodec', 'pcm_s16le',
+                '-ar', '16000',
+                '-ac', '1',
+                wav_path
+            ], check=True)
+            
+            # 변환된 WAV로 재시도
+            result = pipeline(
+                wav_path,
+                min_speakers=speaker_count,
+                max_speakers=speaker_count
+            )
+            
+            # 변환된 파일 삭제
+            os.unlink(wav_path)
+            return result
+            
+        except Exception as conv_e:
+            # 변환된 파일 삭제 시도
+            try:
+                os.unlink(wav_path)
+            except:
+                pass
+            raise conv_e
+
 @app.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...),
@@ -204,12 +248,10 @@ async def transcribe_audio(
             )
             print("Transcription completed")
 
-            # 화자 분리 수행
-            diarization_result = pipeline(
-                temp_path,
-                min_speakers=speaker_count,
-                max_speakers=speaker_count
-            )
+            # 화자 분리 수행 (실패시 WAV 변환 후 재시도)
+            print("Starting diarization...")
+            diarization_result = try_diarization(temp_path, speaker_count)
+            print("Diarization completed")
 
             # 결과 통합
             final_result = diarize_text(asr_result, diarization_result)

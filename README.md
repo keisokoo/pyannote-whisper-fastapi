@@ -60,7 +60,7 @@ conda activate pyannote
 
 # 시스템 패키지 설치
 sudo apt update
-sudo apt install -y ffmpeg libsndfile1-dev libmagic1
+sudo apt install -y ffmpeg libsndfile1-dev libmagic1 sox libsox-fmt-all
 
 # Python 패키지 설치
 pip install pyannote.audio openai-whisper git+https://github.com/keisokoo/pyannote-whisper \
