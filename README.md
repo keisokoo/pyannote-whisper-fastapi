@@ -4,8 +4,10 @@ python3.11 -m venv pyannote-env
 source pyannote-env/bin/activate
 
 # 필요한 패키지 재설치
-pip install pyannote.audio openai-whisper git+https://github.com/keisokoo/pyannote-whisper python-dotenv fastapi python-multipart uvicorn PyJWT
+pip install pyannote.audio openai-whisper git+https://github.com/keisokoo/pyannote-whisper python-dotenv fastapi python-multipart uvicorn PyJWT python-magic
 
+# mac의 경우
+brew install libmagic
 # numpy 버전 다운그레이드
 pip uninstall numpy
 pip install 'numpy<2.0'
@@ -41,11 +43,10 @@ curl -X POST "http://localhost:8088/transcribe" \
 conda create -n pyannote python=3.11
 conda activate pyannote
 
-
-pip install pyannote.audio openai-whisper git+https://github.com/keisokoo/pyannote-whisper python-dotenv fastapi python-multipart uvicorn PyJWT
-
 sudo apt update
-sudo apt install -y ffmpeg libsndfile1-dev
+sudo apt install -y ffmpeg libsndfile1-dev libmagic1
+
+pip install pyannote.audio openai-whisper git+https://github.com/keisokoo/pyannote-whisper python-dotenv fastapi python-multipart uvicorn PyJWT python-magic
 
 pip uninstall numpy
 pip install 'numpy<2.0'
@@ -123,7 +124,6 @@ Restart=always
 [Install]
 WantedBy=multi-user.target
 ```
-
 # 서비스 시작
 sudo systemctl start fastapi
 sudo systemctl enable fastapi  # 부팅 시 자동 시작
@@ -143,3 +143,4 @@ curl -X POST "도메인주소/transcribe" \
   -F "temperature=0.0" \
   -F "no_speech_threshold=0.6" \
   -F "initial_prompt=다음은 한국어 대화입니다."
+

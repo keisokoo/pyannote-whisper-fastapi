@@ -11,6 +11,7 @@ import json
 import torch
 import jwt
 from datetime import datetime, timedelta
+import magic
 
 app = FastAPI()
 
@@ -82,6 +83,21 @@ def verify_jwt_token(token: str) -> bool:
     except Exception as e:  # PyJWT의 모든 예외 처리
         return False
 
+ALLOWED_MIME_TYPES = {
+    'audio/wav', 'audio/x-wav',
+    'audio/mpeg', 'audio/mp3',
+    'audio/m4a', 'audio/mp4',
+    'audio/x-m4a',
+    'audio/ogg',
+    'audio/flac'
+}
+
+def is_allowed_file(file_content: bytes) -> bool:
+    """파일의 실제 MIME 타입을 확인하여 허용된 오디오 파일인지 검증"""
+    mime = magic.Magic(mime=True)
+    file_mime_type = mime.from_buffer(file_content)
+    return file_mime_type in ALLOWED_MIME_TYPES
+
 @app.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...),
@@ -114,12 +130,22 @@ async def transcribe_audio(
 
     if not file:
         raise HTTPException(status_code=400, detail="파일이 없습니다.")
-
+    
+    # 파일 내용 읽기
+    content = await file.read()
+    print(f"Request received. file name: {file.filename}, file size: {len(content)}")
+    
+    # 파일 형식 검증
+    if not is_allowed_file(content):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"지원하지 않는 파일 형식입니다. 지원되는 형식: WAV, MP3, M4A, FLAC, OGG"
+        )
+    
     try:
         # 임시 파일로 저장
         with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_file:
-            content = await file.read()
-            temp_file.write(content)
+            temp_file.write(content)  # 이미 읽은 content 사용
             temp_path = temp_file.name
 
         # 음성 인식 수행

@@ -1,6 +1,6 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Header
 from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import whisper
 from pyannote.audio import Pipeline
 from pyannote_whisper.utils import diarize_text
@@ -9,6 +9,8 @@ import os
 import tempfile
 import json
 import torch
+import jwt
+from datetime import datetime, timedelta
 
 app = FastAPI()
 
@@ -66,6 +68,20 @@ def format_results(diarization_results) -> Dict[str, Any]:
     
     return {"results": results}
 
+# JWT 설정
+JWT_SECRET = os.getenv("JWT_SECRET", "your_jwt_secret")
+TEST_TOKEN = os.getenv("TEST_TOKEN", "test1234")
+JWT_ALGORITHM = "HS256"
+
+def verify_jwt_token(token: str) -> bool:
+    """JWT 토큰을 검증합니다."""
+    try:
+        # PyJWT의 decode 메서드 사용
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return True
+    except Exception as e:  # PyJWT의 모든 예외 처리
+        return False
+
 @app.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...),
@@ -73,7 +89,8 @@ async def transcribe_audio(
     language: str = Form(default="ko"),
     temperature: float = Form(default=0.0),
     no_speech_threshold: float = Form(default=0.6),
-    initial_prompt: str = Form(default="다음은 한국어 대화입니다.")
+    initial_prompt: str = Form(default="다음은 한국어 대화입니다."),
+    authorization: Optional[str] = Header(None)
 ):
     """
     오디오 파일을 받아서 화자 분리된 텍스트를 반환합니다.
@@ -85,7 +102,16 @@ async def transcribe_audio(
         temperature: 생성 다양성 (기본값: 0.0)
         no_speech_threshold: 무음 감지 임계값 (기본값: 0.6)
         initial_prompt: 초기 프롬프트 (기본값: "다음은 한국어 대화입니다.")
+        authorization: JWT 토큰 (기본값: None)
     """
+    # 토큰 검증
+    if not authorization:
+        raise HTTPException(status_code=401, detail="인증 토큰이 필요합니다.")
+    
+    # 테스트 토큰 확인 또는 JWT 검증
+    if authorization != TEST_TOKEN and not verify_jwt_token(authorization):
+        raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+
     if not file:
         raise HTTPException(status_code=400, detail="파일이 없습니다.")
 
