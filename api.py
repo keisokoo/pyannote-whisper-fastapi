@@ -41,7 +41,7 @@ whisper_model = whisper.load_model("large-v3-turbo")
 if device != "cpu":
     whisper_model.to(device)
 
-# Pipeline 초기화 및 디바이스 설정
+# Pipeline ���기화 및 디바이스 설정
 pipeline = Pipeline.from_pretrained(
     "pyannote/speaker-diarization-3.1",
     use_auth_token=auth_token
@@ -144,52 +144,65 @@ async def transcribe_audio(
     if not file:
         raise HTTPException(status_code=400, detail="파일이 없습니다.")
     
-    # 파일 내용 읽기
-    content = await file.read()
-    print(f"Request received. file name: {file.filename}, file size: {len(content)}")
-
-    # 파일 형식 검증
-    if not is_allowed_file(content):
-        raise HTTPException(
-            status_code=400, 
-            detail=f"지원하지 않는 파일 형식입니다. 지원되는 형식: WAV, MP3, M4A, FLAC, OGG"
-        )
-    
     try:
-        # 임시 파일로 저장
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_file:
-            temp_file.write(content)  # 이미 읽은 content 사용
-            temp_path = temp_file.name
+        # 파일 내용 읽기
+        content = await file.read()
+        print(f"Request received. file name: {file.filename}, file size: {len(content)}")
 
-        # 음성 인식 수행
-        asr_result = whisper_model.transcribe(
-            temp_path,
-            language=language,
-            temperature=temperature,
-            no_speech_threshold=no_speech_threshold,
-            initial_prompt=initial_prompt,
-            word_timestamps=True,
-            condition_on_previous_text=True,
-            fp16=False
-        )
+        # 파일 형식 검증
+        mime = magic.Magic(mime=True)
+        file_mime_type = mime.from_buffer(content)
+        print(f"File MIME type: {file_mime_type}")
 
-        # 화자 분리 수행
-        diarization_result = pipeline(
-            temp_path,
-            min_speakers=speaker_count,
-            max_speakers=speaker_count
-        )
-
-        # 결과 통합
-        final_result = diarize_text(asr_result, diarization_result)
+        if not is_allowed_file(content):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"지원하지 않는 파일 형식입니다. 감지된 MIME type: {file_mime_type}"
+            )
         
-        # 임시 파일 삭제
-        os.unlink(temp_path)
-        
-        # 결과 반환
-        return format_results(final_result)
+        try:
+            # 임시 파일로 저장
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_file:
+                temp_file.write(content)
+                temp_path = temp_file.name
+                print(f"Temporary file saved at: {temp_path}")
+
+            # 음성 인식 수행
+            print("Starting transcription...")
+            asr_result = whisper_model.transcribe(
+                temp_path,
+                language=language,
+                temperature=temperature,
+                no_speech_threshold=no_speech_threshold,
+                initial_prompt=initial_prompt,
+                word_timestamps=True,
+                condition_on_previous_text=True,
+                fp16=False
+            )
+            print("Transcription completed")
+
+            # 화자 분리 수행
+            diarization_result = pipeline(
+                temp_path,
+                min_speakers=speaker_count,
+                max_speakers=speaker_count
+            )
+
+            # 결과 통합
+            final_result = diarize_text(asr_result, diarization_result)
+            
+            # 임시 파일 삭제
+            os.unlink(temp_path)
+            
+            # 결과 반환
+            return format_results(final_result)
+
+        except Exception as e:
+            print(f"Error occurred: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     except Exception as e:
+        print(f"Error occurred: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
