@@ -5,7 +5,7 @@
 ## 빠른 시작 가이드
 
 ### 1. 필수 준비사항
-- Python 3.11 이상
+- Python 3.11
 - Conda
 - Hugging Face 토큰 (https://huggingface.co/settings/tokens)
 
