@@ -95,6 +95,8 @@ ALLOWED_MIME_TYPES = {
     'audio/m4a', 'audio/mp4', 'audio/x-m4a',
     'audio/ogg',
     'audio/flac',
+    'audio/aiff', 'audio/x-aiff',     # AIFF
+    'audio/opus',                      # OPUS (일반적으로 audio/ogg로도 인식됨)
     'video/mp4',
     'video/webm',           # WebM 비디오
     'audio/webm',           # WebM 오디오
