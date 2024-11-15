@@ -34,8 +34,10 @@ sudo systemctl start fastapi
 sudo systemctl start caddy  # 도메인 사용시
 ```
 
+---
+
 <details>
-<summary><b>상세 설치 및 설정 가이드</b></summary>
+<summary><h2 style="display: inline-block; color: #0366d6;">📖 상세 설치 및 설정 가이드</h2></summary>
 
 이하 내용은 수동 설치 및 설정에 대한 상세 가이드입니다.
 
@@ -220,8 +222,10 @@ sudo systemctl restart fastapi
 
 </details>
 
+<br/>
+
 <details>
-<summary><b>지원하는 파일 형식</b></summary>
+<summary><h2 style="display: inline-block; color: #0366d6;">📁 지원하는 파일 형식</h2></summary>
 
 ### 모든 기능 지원 (음성 인식 + 화자 분리)
 - WAV (audio/wav, audio/x-wav)
@@ -245,8 +249,10 @@ sudo systemctl restart fastapi
 
 </details>
 
+<br/>
+
 <details>
-<summary><b>API 요청 형식</b></summary>
+<summary><h2 style="display: inline-block; color: #0366d6;">🔍 API 요청 형식</h2></summary>
 
 ### POST /transcribe
 
@@ -304,8 +310,10 @@ curl -X POST "http://localhost:8088/transcribe" \
 
 </details>
 
+<br/>
+
 <details>
-<summary><b>지원 언어 코드</b></summary>
+<summary><h2 style="display: inline-block; color: #0366d6;">🌐 지원 언어 코드</h2></summary>
 
 Whisper 모델이 지원하는 언어 코드 목록입니다. `language` 파라미터에 사용할 수 있습니다.
 (null이나 빈 값으로 두면 자동으로 언어를 감지합니다)
