@@ -97,7 +97,10 @@ ALLOWED_MIME_TYPES = {
     'audio/flac',
     'video/mp4',
     'video/webm',           # WebM 비디오
-    'audio/webm'            # WebM 오디오
+    'audio/webm',           # WebM 오디오
+    'video/x-msvideo',      # AVI
+    'video/quicktime',      # MOV
+    'video/x-matroska'      # MKV
 }
 
 def is_allowed_file(file_content: bytes) -> bool:
