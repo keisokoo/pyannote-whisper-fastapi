@@ -41,7 +41,7 @@ whisper_model = whisper.load_model("large-v3-turbo")
 if device != "cpu":
     whisper_model.to(device)
 
-# Pipeline ���기화 및 디바이스 설정
+# Pipeline 기화 및 디바이스 설정
 pipeline = Pipeline.from_pretrained(
     "pyannote/speaker-diarization-3.1",
     use_auth_token=auth_token
@@ -111,6 +111,28 @@ def is_allowed_file(file_content: bytes) -> bool:
     file_mime_type = mime.from_buffer(file_content)
     return file_mime_type in ALLOWED_MIME_TYPES
 
+# MIME 타입에 따른 확장자 매핑
+MIME_TO_EXT = {
+    'audio/wav': '.wav',
+    'audio/x-wav': '.wav',
+    'audio/mpeg': '.mp3',
+    'audio/mp3': '.mp3',
+    'audio/m4a': '.m4a',
+    'audio/mp4': '.m4a',
+    'audio/x-m4a': '.m4a',
+    'audio/ogg': '.ogg',
+    'audio/flac': '.flac',
+    'audio/aiff': '.aiff',
+    'audio/x-aiff': '.aiff',
+    'audio/opus': '.opus',
+    'video/mp4': '.m4a',  # 오디오 전용 mp4는 m4a로 처리
+    'video/webm': '.webm',
+    'audio/webm': '.webm',
+    'video/x-msvideo': '.avi',
+    'video/quicktime': '.mov',
+    'video/x-matroska': '.mkv'
+}
+
 @app.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...),
@@ -161,8 +183,9 @@ async def transcribe_audio(
             )
         
         try:
-            # 임시 파일로 저장
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_file:
+            # MIME 타입에 따른 확장자 결정
+            ext = MIME_TO_EXT.get(file_mime_type, os.path.splitext(file.filename)[1])
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_file:
                 temp_file.write(content)
                 temp_path = temp_file.name
                 print(f"Temporary file saved at: {temp_path}")
