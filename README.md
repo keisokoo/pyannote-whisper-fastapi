@@ -4,22 +4,21 @@ python3.11 -m venv pyannote-env
 source pyannote-env/bin/activate
 
 # 필요한 패키지 재설치
-pip install pyannote.audio
-pip install openai-whisper
-pip install git+https://github.com/keisokoo/pyannote-whisper
-pip install python-dotenv
+pip install pyannote.audio openai-whisper git+https://github.com/keisokoo/pyannote-whisper python-dotenv fastapi python-multipart uvicorn PyJWT
 
 # numpy 버전 다운그레이드
 pip uninstall numpy
 pip install 'numpy<2.0'
 
-python main.py
+python api.py
 ```
 
 ```shell
 # 환경 변수 설정
 .env
 HUGGING_FACE_TOKEN=<your_hugging_face_token>
+JWT_SECRET=<your_jwt_secret>
+TEST_TOKEN=<your_test_token>
 # api 의존성
 pip install fastapi python-multipart uvicorn
 
@@ -43,7 +42,7 @@ conda create -n pyannote python=3.11
 conda activate pyannote
 
 
-pip install pyannote.audio openai-whisper git+https://github.com/keisokoo/pyannote-whisper python-dotenv fastapi python-multipart uvicorn
+pip install pyannote.audio openai-whisper git+https://github.com/keisokoo/pyannote-whisper python-dotenv fastapi python-multipart uvicorn PyJWT
 
 sudo apt update
 sudo apt install -y ffmpeg libsndfile1-dev
