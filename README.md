@@ -134,6 +134,8 @@ sudo systemctl status fastapi
 # 로그 확인
 sudo journalctl -u fastapi -f
 
+# 재시작
+sudo systemctl restart fastapi
 
 curl -X POST "도메인주소/transcribe" \
   -H "accept: application/json" \
