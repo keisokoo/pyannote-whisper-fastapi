@@ -56,6 +56,7 @@ def try_diarization(pipeline, file_path: str, speaker_count: int):
                 '-acodec', 'pcm_s16le',
                 '-ar', '16000',
                 '-ac', '1',
+                '-af', 'highpass=f=200,lowpass=f=3000,volume=1.5',
                 wav_path
             ], check=True)
             
@@ -138,6 +139,14 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
             word_timestamps=True,
             condition_on_previous_text=True,
             fp16=False
+            # 추가 옵션들
+            suppress_tokens=[-1],  # 특수 토큰 억제
+            sample_len=None,      # 샘플 길이 제한
+            best_of=5,            # 가장 좋은 결과 선택
+            patience=1,           # beam search patience
+            compression_ratio_threshold=2.0,  # 압축률 임계값
+            logprob_threshold=-1.0,          # 로그 확률 임계값
+            silence_threshold=0.5            # 무음 임계값
         )
         logger.info("Whisper transcription completed")
 
