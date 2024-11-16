@@ -156,7 +156,7 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         # 임시 파일 삭제
         os.unlink(file_path)
         logger.info("Temporary file deleted")
-
+        print("final_result", final_result)
         # 결과 포맷팅
         results = []
         for segment, speaker, text in final_result:
