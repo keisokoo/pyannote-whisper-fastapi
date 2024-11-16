@@ -22,37 +22,23 @@ celery_app.conf.update(
     result_serializer='json',
     accept_content=['json'],
     enable_utc=True,
-    task_track_started=True,  # 작업 시작 추적
-    task_time_limit=3600,     # 작업 시간 제한 (1시간)
+    task_track_started=True,
+    task_time_limit=3600,
+    worker_prefetch_multiplier=1,
+    task_ignore_result=False,
+    result_expires=None,
 )
 
 # 환경변수 로드
 load_dotenv()
 auth_token = os.getenv('HUGGING_FACE_TOKEN')
 
-# 디바이스 선택
 def get_device():
     if torch.cuda.is_available():
         return "cuda"
     return "cpu"
 
-device = get_device()
-print(f"Using device: {device}")
-
-# Whisper 모델 초기화
-whisper_model = whisper.load_model("large-v3-turbo")
-if device != "cpu":
-    whisper_model.to(device)
-
-# Pipeline 초기화
-pipeline = Pipeline.from_pretrained(
-    "pyannote/speaker-diarization-3.1",
-    use_auth_token=auth_token
-)
-if device != "cpu":
-    pipeline.to(torch.device(device))
-
-def try_diarization(file_path: str, speaker_count: int):
+def try_diarization(pipeline, file_path: str, speaker_count: int):
     try:
         return pipeline(
             file_path,
@@ -60,8 +46,8 @@ def try_diarization(file_path: str, speaker_count: int):
             max_speakers=speaker_count
         )
     except Exception as e:
-        print(f"Original format diarization failed: {str(e)}")
-        print("Trying with WAV conversion...")
+        logger.error(f"Original format diarization failed: {str(e)}")
+        logger.info("Trying with WAV conversion...")
         
         wav_path = file_path + '.wav'
         try:
@@ -95,8 +81,27 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
                  initial_prompt: str = "다음은 한국어 대화입니다."):
     try:
         # 작업 시작 상태 업데이트
-        self.update_state(state='PROGRESS', meta={'status': 'starting'})
+        self.update_state(state='PROGRESS', meta={'status': 'initializing'})
         logger.info(f"Starting audio processing task: {self.request.id}")
+        
+        # 모델 초기화
+        device = get_device()
+        logger.info(f"Using device: {device}")
+        
+        # Whisper 모델 초기화
+        logger.info("Initializing Whisper model...")
+        whisper_model = whisper.load_model("large-v3-turbo")
+        if device != "cpu":
+            whisper_model.to(device)
+        
+        # Pipeline 초기화
+        logger.info("Initializing Pipeline...")
+        pipeline = Pipeline.from_pretrained(
+            "pyannote/speaker-diarization-3.1",
+            use_auth_token=auth_token
+        )
+        if device != "cpu":
+            pipeline.to(torch.device(device))
         
         # 파일 존재 확인
         if not os.path.exists(file_path):
@@ -105,7 +110,7 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         
         # Whisper 처리 시작
         self.update_state(state='PROGRESS', meta={'status': 'transcribing'})
-        logger.info(f"File path: {file_path}")
+        logger.info(f"Processing file: {file_path}")
         
         # 음성 인식
         logger.info("Starting whisper transcription...")
@@ -122,11 +127,13 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         logger.info("Whisper transcription completed")
 
         # 화자 분리
+        self.update_state(state='PROGRESS', meta={'status': 'diarizing'})
         logger.info("Starting speaker diarization...")
-        diarization_result = try_diarization(file_path, speaker_count)
+        diarization_result = try_diarization(pipeline, file_path, speaker_count)
         logger.info("Speaker diarization completed")
 
         # 결과 통합
+        self.update_state(state='PROGRESS', meta={'status': 'combining'})
         logger.info("Combining results...")
         final_result = diarize_text(asr_result, diarization_result)
         logger.info("Results combined")
@@ -158,10 +165,8 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
     except Exception as e:
         self.update_state(state='FAILURE', meta={'error': str(e)})
         logger.error(f"Error in process_audio: {str(e)}", exc_info=True)
-        # 에러 발생시 임시 파일 삭제 시도
         try:
             os.unlink(file_path)
-            logger.info("Temporary file deleted after error")
         except:
             pass
         raise e 

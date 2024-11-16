@@ -274,7 +274,6 @@ async def get_result(task_id: str, authorization: Optional[str] = Header(None)):
         return {"status": "failed", "error": str(task.result)}
     else:
         return {"status": task.state}
-
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8088))
