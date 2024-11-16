@@ -130,20 +130,24 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         
         # 음성 인식
         logger.info("Starting whisper transcription...")
-        asr_result = whisper_model.transcribe(
-            file_path,
-            language=language,
-            temperature=temperature,
-            no_speech_threshold=no_speech_threshold,
-            initial_prompt=initial_prompt,
-            word_timestamps=True,
-            condition_on_previous_text=True,
-            fp16=False,
-            compression_ratio_threshold=2.0,
-            logprob_threshold=-0.8
-        )
-        logger.info("Whisper transcription completed")
-
+        try:
+            asr_result = whisper_model.transcribe(
+                file_path,
+                language=language,
+                temperature=temperature,
+                no_speech_threshold=no_speech_threshold,
+                initial_prompt=initial_prompt,
+                word_timestamps=True,
+                condition_on_previous_text=True,
+                fp16=False,
+                compression_ratio_threshold=2.0,
+                logprob_threshold=-0.8
+            )
+            logger.info("Whisper transcription completed")
+          except Exception as e:
+            logger.error(f"Whisper transcription failed: {str(e)}", exc_info=True)
+            raise RuntimeError(f"Transcription failed: {str(e)}")
+        
         # 화자 분리
         self.update_state(state='PROGRESS', meta={'status': 'diarizing'})
         logger.info("Starting speaker diarization...")
