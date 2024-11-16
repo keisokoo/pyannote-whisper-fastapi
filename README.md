@@ -307,6 +307,7 @@ curl -X POST "http://localhost:8088/transcribe" \
 #### 처리 완료 응답
 ```json
 {
+    "status": "completed",
     "results": [
         {
             "speaker": 0,
