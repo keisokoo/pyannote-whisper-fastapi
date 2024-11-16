@@ -125,7 +125,7 @@ def process_audio(file_path: str, speaker_count: int, language: str = None,
                 }
                 results.append(result)
 
-        return {"results": results}
+        return {"results": results, "status": "completed"}
 
     except Exception as e:
         # 에러 발생시 임시 파일 삭제 시도
