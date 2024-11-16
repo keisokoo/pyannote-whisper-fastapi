@@ -100,9 +100,12 @@ def initialize_models():
     if device != "cpu":
         pipeline.to(torch.device(device))
 
-# 워커 시작 시 모델 초기화
-@celery_app.on_after_configure.connect
+@celery_app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
+    pass  # beat 관련 태스크가 필요한 경우에만 사용
+
+@celery_app.signals.worker_init.connect
+def init_worker(**kwargs):
     initialize_models()
 
 @celery_app.task(name='tasks.process_audio', bind=True)
@@ -114,11 +117,11 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         self.update_state(state='PROGRESS', meta={'status': 'initializing'})
         logger.info(f"Starting audio processing task: {self.request.id}")
         
-        # 모델이 초기화되지 않은 경우 초기화
+        # 모델이 초기화되지 않은 경우를 위한 안전장치는 유지
         global whisper_model, pipeline
         if whisper_model is None or pipeline is None:
             initialize_models()
-        
+            
         # 파일 존재 확인
         if not os.path.exists(file_path):
             self.update_state(state='FAILURE', meta={'error': 'File not found'})
