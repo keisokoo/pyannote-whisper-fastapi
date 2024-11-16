@@ -75,6 +75,36 @@ def try_diarization(pipeline, file_path: str, speaker_count: int):
                 pass
             raise conv_e
 
+# 전역 변수로 모델 선언
+whisper_model = None
+pipeline = None
+
+def initialize_models():
+    global whisper_model, pipeline
+    
+    device = get_device()
+    logger.info(f"Using device: {device}")
+    
+    # Whisper 모델 초기화
+    logger.info("Initializing Whisper model...")
+    whisper_model = whisper.load_model("large-v3-turbo")
+    if device != "cpu":
+        whisper_model.to(device)
+    
+    # Pipeline 초기화
+    logger.info("Initializing Pipeline...")
+    pipeline = Pipeline.from_pretrained(
+        "pyannote/speaker-diarization-3.1",
+        use_auth_token=auth_token
+    )
+    if device != "cpu":
+        pipeline.to(torch.device(device))
+
+# 워커 시작 시 모델 초기화
+@celery_app.on_after_configure.connect
+def setup_periodic_tasks(sender, **kwargs):
+    initialize_models()
+
 @celery_app.task(name='tasks.process_audio', bind=True)
 def process_audio(self, file_path: str, speaker_count: int, language: str = None,
                  temperature: float = 0.0, no_speech_threshold: float = 0.6,
@@ -84,24 +114,10 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         self.update_state(state='PROGRESS', meta={'status': 'initializing'})
         logger.info(f"Starting audio processing task: {self.request.id}")
         
-        # 모델 초기화
-        device = get_device()
-        logger.info(f"Using device: {device}")
-        
-        # Whisper 모델 초기화
-        logger.info("Initializing Whisper model...")
-        whisper_model = whisper.load_model("large-v3-turbo")
-        if device != "cpu":
-            whisper_model.to(device)
-        
-        # Pipeline 초기화
-        logger.info("Initializing Pipeline...")
-        pipeline = Pipeline.from_pretrained(
-            "pyannote/speaker-diarization-3.1",
-            use_auth_token=auth_token
-        )
-        if device != "cpu":
-            pipeline.to(torch.device(device))
+        # 모델이 초기화되지 않은 경우 초기화
+        global whisper_model, pipeline
+        if whisper_model is None or pipeline is None:
+            initialize_models()
         
         # 파일 존재 확인
         if not os.path.exists(file_path):

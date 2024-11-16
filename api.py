@@ -7,7 +7,6 @@ from pyannote_whisper.utils import diarize_text
 from dotenv import load_dotenv
 import os
 import tempfile
-import json
 import torch
 import jwt
 from datetime import datetime, timedelta
@@ -28,49 +27,6 @@ load_dotenv()
 auth_token = os.getenv('HUGGING_FACE_TOKEN')
 if not auth_token:
     raise ValueError("HUGGING_FACE_TOKEN이 설정되지 않았습니다.")
-
-# 디바이스 선택 로직 수정
-def get_device():
-    if torch.cuda.is_available():
-        return "cuda"
-    return "cpu"
-
-# 디바이스 설정
-device = get_device()
-print(f"Using device: {device}")
-
-# Whisper 모델 초기화 및 디바이스 설정
-whisper_model = whisper.load_model("large-v3-turbo")
-if device != "cpu":
-    whisper_model.to(device)
-
-# Pipeline 기화 및 디바이스 설정
-pipeline = Pipeline.from_pretrained(
-    "pyannote/speaker-diarization-3.1",
-    use_auth_token=auth_token
-)
-if device != "cpu":
-    pipeline.to(torch.device(device))
-
-def format_results(diarization_results) -> Dict[str, Any]:
-    """화자 분리 결과를 JSON 형식으로 변환합니다."""
-    results = []
-    for segment, speaker, text in diarization_results:
-        try:
-            speaker_num = int(speaker.split('_')[-1]) if speaker else -1
-        except (AttributeError, ValueError):
-            speaker_num = -1
-        
-        if text and text.strip():
-            result = {
-                "speaker": speaker_num,
-                "start": round(segment.start, 2),
-                "end": round(segment.end, 2),
-                "text": text.strip()
-            }
-            results.append(result)
-    
-    return {"results": results}
 
 # JWT 설정
 JWT_SECRET = os.getenv("JWT_SECRET", "your_jwt_secret")
@@ -135,49 +91,6 @@ MIME_TO_EXT = {
     'video/quicktime': '.mov',
     'video/x-matroska': '.mkv'
 }
-
-def try_diarization(file_path: str, speaker_count: int):
-    """화자 분리를 시도하고, 실패시 WAV로 변환하여 재시도"""
-    try:
-        # 먼저 원본 파일로 시도
-        return pipeline(
-            file_path,
-            min_speakers=speaker_count,
-            max_speakers=speaker_count
-        )
-    except Exception as e:
-        print(f"Original format diarization failed: {str(e)}")
-        print("Trying with WAV conversion...")
-        
-        # WAV로 변환
-        wav_path = file_path + '.wav'
-        try:
-            subprocess.run([
-                'ffmpeg', '-i', file_path,
-                '-acodec', 'pcm_s16le',
-                '-ar', '16000',
-                '-ac', '1',
-                wav_path
-            ], check=True)
-            
-            # 변환된 WAV로 재시도
-            result = pipeline(
-                wav_path,
-                min_speakers=speaker_count,
-                max_speakers=speaker_count
-            )
-            
-            # 변환된 파일 삭제
-            os.unlink(wav_path)
-            return result
-            
-        except Exception as conv_e:
-            # 변환된 파일 삭제 시도
-            try:
-                os.unlink(wav_path)
-            except:
-                pass
-            raise conv_e
 
 @app.post("/transcribe")
 async def transcribe_audio(
