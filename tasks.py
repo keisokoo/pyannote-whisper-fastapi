@@ -39,6 +39,7 @@ def get_device():
     return "cpu"
 
 def try_diarization(pipeline, file_path: str, speaker_count: int):
+    """화자 분리 수행"""
     try:
         return pipeline(
             file_path,
@@ -46,35 +47,8 @@ def try_diarization(pipeline, file_path: str, speaker_count: int):
             max_speakers=speaker_count
         )
     except Exception as e:
-        logger.error(f"Original format diarization failed: {str(e)}")
-        logger.info("Trying with WAV conversion...")
-        
-        wav_path = file_path + '.wav'
-        try:
-            subprocess.run([
-                'ffmpeg', '-i', file_path,
-                '-acodec', 'pcm_s16le',
-                '-ar', '16000',
-                '-ac', '1',
-                '-af', 'highpass=f=200,lowpass=f=3000,volume=1.5',
-                wav_path
-            ], check=True)
-            
-            result = pipeline(
-                wav_path,
-                min_speakers=speaker_count,
-                max_speakers=speaker_count
-            )
-            
-            os.unlink(wav_path)
-            return result
-            
-        except Exception as conv_e:
-            try:
-                os.unlink(wav_path)
-            except:
-                pass
-            raise conv_e
+        logger.error(f"Diarization failed: {str(e)}")
+        raise e
 
 # 전역 변수로 모델 선언
 whisper_model = None
@@ -124,7 +98,7 @@ def setup_periodic_tasks(sender, **kwargs):
 
 @celery_app.task(name='tasks.process_audio', bind=True)
 def process_audio(self, file_path: str, speaker_count: int, language: str = None,
-                 temperature: float = 0.0, no_speech_threshold: float = 0.7,
+                 temperature: float = 0.0, no_speech_threshold: float = 0.6,
                  initial_prompt: str = "다음은 한국어 대화입니다."):
     try:
         # 작업 시작 상태 업데이트
@@ -141,39 +115,37 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
             self.update_state(state='FAILURE', meta={'error': 'File not found'})
             raise FileNotFoundError(f"File not found: {file_path}")
         
-        # 전처리된 오디오 생성
+        # 전처리된 오디오 생성 (한 번만)
         processed_path = preprocess_audio(file_path)
         
         # Whisper 처리
         self.update_state(state='PROGRESS', meta={'status': 'transcribing'})
-        logger.info(f"Processing file: {file_path}")
+        logger.info(f"Processing file: {processed_path}")
         
-        # 음성 인식
-        logger.info("Starting whisper transcription...")
         try:
             asr_result = whisper_model.transcribe(
-                processed_path,  # 전처리된 파일 사용
+                processed_path,
                 language=language,
-                temperature=temperature,
-                no_speech_threshold=no_speech_threshold,
+                temperature=0,  # beam search 사용
+                no_speech_threshold=0.7,
                 initial_prompt=initial_prompt,
                 word_timestamps=True,
                 condition_on_previous_text=True,
                 fp16=False,
-                compression_ratio_threshold=2.0,
-                logprob_threshold=-0.8
+                compression_ratio_threshold=1.8,
+                logprob_threshold=-0.7
             )
             logger.info("Whisper transcription completed")
         except Exception as e:
             logger.error(f"Whisper transcription failed: {str(e)}", exc_info=True)
             raise RuntimeError(f"Transcription failed: {str(e)}")
         
-        # 화자 분리
+        # 화자 분리 (같은 전처리된 파일 사용)
         self.update_state(state='PROGRESS', meta={'status': 'diarizing'})
         logger.info("Starting speaker diarization...")
         diarization_result = try_diarization(pipeline, processed_path, speaker_count)
         logger.info("Speaker diarization completed")
-
+        
         # 결과 통합
         self.update_state(state='PROGRESS', meta={'status': 'combining'})
         logger.info("Combining results...")
@@ -211,6 +183,7 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         self.update_state(state='FAILURE', meta={'error': str(e)})
         logger.error(f"Error in process_audio: {str(e)}", exc_info=True)
         try:
+            os.unlink(processed_path)
             os.unlink(file_path)
         except:
             pass
