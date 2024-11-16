@@ -35,6 +35,16 @@ sudo systemctl start caddy  # 도메인 사용시
 ```
 
 ---
+<details>
+<summary><h2 style="display: inline-block; color: #0366d6;">📝 작업 결과 관리</h2></summary>
+
+- 작업 처리 제한 시간: 3시간
+- 작업 결과는 클라이언트에게 전달된 즉시 삭제됩니다
+- 조회되지 않은 작업 결과는 3시간 후 자동으로 만료됩니다
+- 한 번 조회된 작업 ID로 재조회 시 `{"status": "pending"}`이 반환됩니다
+</details>
+
+<br/>
 
 <details>
 <summary><h2 style="display: inline-block; color: #0366d6;">📖 상세 설치 및 설정 가이드</h2></summary>

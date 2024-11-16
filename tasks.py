@@ -23,10 +23,10 @@ celery_app.conf.update(
     accept_content=['json'],
     enable_utc=True,
     task_track_started=True,
-    task_time_limit=3600,
+    task_time_limit=60 * 60 * 3,
     worker_prefetch_multiplier=1,
     task_ignore_result=False,
-    result_expires=None,
+    result_expires=60 * 60 * 3
 )
 
 # 환경변수 로드

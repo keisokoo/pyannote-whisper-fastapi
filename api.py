@@ -269,9 +269,15 @@ async def get_result(task_id: str, authorization: Optional[str] = Header(None)):
     elif task.state == 'PROGRESS':
         return {"status": "processing", "info": task.info.get('status', '')}
     elif task.state == 'SUCCESS':
-        return task.result
+        result = task.result
+        # 결과를 반환하기 전에 작업 삭제
+        task.forget()
+        return result
     elif task.state == 'FAILURE':
-        return {"status": "failed", "error": str(task.result)}
+        error = str(task.result)
+        # 실패한 작업도 삭제
+        task.forget()
+        return {"status": "failed", "error": error}
     else:
         return {"status": task.state}
 if __name__ == "__main__":
