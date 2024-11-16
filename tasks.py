@@ -101,6 +101,23 @@ def initialize_models():
     if device != "cpu":
         pipeline.to(torch.device(device))
 
+def preprocess_audio(file_path: str) -> str:
+    """오디오 파일 전처리"""
+    try:
+        wav_path = file_path + '_processed.wav'
+        subprocess.run([
+            'ffmpeg', '-i', file_path,
+            '-acodec', 'pcm_s16le',
+            '-ar', '16000',  # Whisper 권장 샘플레이트
+            '-ac', '1',      # 모노로 변환
+            '-af', 'highpass=f=200,lowpass=f=3000,volume=1.5',  # 음성 주파수 대역 필터링
+            wav_path
+        ], check=True)
+        return wav_path
+    except Exception as e:
+        logger.error(f"Audio preprocessing failed: {str(e)}")
+        raise e
+
 @celery_app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     pass  # beat 관련 태스크가 필요한 경우에만 사용
@@ -124,7 +141,10 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
             self.update_state(state='FAILURE', meta={'error': 'File not found'})
             raise FileNotFoundError(f"File not found: {file_path}")
         
-        # Whisper 처리 시작
+        # 전처리된 오디오 생성
+        processed_path = preprocess_audio(file_path)
+        
+        # Whisper 처리
         self.update_state(state='PROGRESS', meta={'status': 'transcribing'})
         logger.info(f"Processing file: {file_path}")
         
@@ -132,7 +152,7 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         logger.info("Starting whisper transcription...")
         try:
             asr_result = whisper_model.transcribe(
-                file_path,
+                processed_path,  # 전처리된 파일 사용
                 language=language,
                 temperature=temperature,
                 no_speech_threshold=no_speech_threshold,
@@ -151,7 +171,7 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         # 화자 분리
         self.update_state(state='PROGRESS', meta={'status': 'diarizing'})
         logger.info("Starting speaker diarization...")
-        diarization_result = try_diarization(pipeline, file_path, speaker_count)
+        diarization_result = try_diarization(pipeline, processed_path, speaker_count)
         logger.info("Speaker diarization completed")
 
         # 결과 통합
@@ -160,9 +180,12 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         final_result = diarize_text(asr_result, diarization_result)
         logger.info("Results combined")
 
-        # 임시 파일 삭제
-        os.unlink(file_path)
-        logger.info("Temporary file deleted")
+        # 임시 파일들 정리
+        try:
+            os.unlink(processed_path)
+            os.unlink(file_path)
+        except:
+            pass
         
         # 결과 포맷팅
         results = []
