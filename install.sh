@@ -71,12 +71,18 @@ Description=Celery Worker Service
 After=network.target redis-server.service
 
 [Service]
-User=$USER
-WorkingDirectory=$PWD
-Environment=PYTHONPATH=$PWD
+Type=simple
+User=sokoo
+WorkingDirectory=/home/sokoo/pyannote-whisper-fastapi
+Environment=PYTHONPATH=/home/sokoo/pyannote-whisper-fastapi
 ExecStart=/opt/conda/envs/pyannote/bin/celery -A tasks worker --loglevel=info
 Restart=always
 RestartSec=10s
+
+# 추가할 설정
+TimeoutStopSec=10
+KillMode=mixed
+KillSignal=SIGTERM
 
 [Install]
 WantedBy=multi-user.target

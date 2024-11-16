@@ -182,6 +182,11 @@ ExecStart=/opt/conda/envs/pyannote/bin/celery -A tasks worker --loglevel=info
 Restart=always
 RestartSec=10s
 
+# 추가할 설정
+TimeoutStopSec=10
+KillMode=mixed
+KillSignal=SIGTERM
+
 [Install]
 WantedBy=multi-user.target
 ```
@@ -297,17 +302,32 @@ curl -X POST "http://localhost:8088/transcribe" \
 |------|------|------|
 | Authorization | ✓ | JWT 토큰 또는 테스트 토큰 |
 
-#### 처리 중 응답
+#### 응답 형식
+
+1. 대기 중:
 ```json
 {
-    "status": "processing"
+    "status": "pending"
 }
 ```
 
-#### 처리 완료 응답
+2. 처리 중:
 ```json
 {
-    "status": "completed",
+    "status": "processing",
+    "info": "transcribing"  // 현재 진행 중인 단계
+}
+```
+
+가능한 info 값:
+- "initializing": 초기화 중
+- "transcribing": 음성 인식 중
+- "diarizing": 화자 분리 중
+- "combining": 결과 통합 중
+
+3. 처리 완료:
+```json
+{
     "results": [
         {
             "speaker": 0,
@@ -321,14 +341,16 @@ curl -X POST "http://localhost:8088/transcribe" \
             "end": 4.2,
             "text": "네, 안녕하세요."
         }
-    ]
+    ],
+    "status": "completed"
 }
 ```
 
-#### 에러 응답
+4. 에러 발생:
 ```json
 {
-    "detail": "에러 메시지"
+    "status": "failed",
+    "error": "에러 메시지"
 }
 ```
 
@@ -336,6 +358,115 @@ curl -X POST "http://localhost:8088/transcribe" \
 ```bash
 curl -X GET "http://localhost:8088/result/1234-5678-90ab-cdef" \
      -H "Authorization: your_token_here"
+```
+
+### 📘 TypeScript Interfaces
+
+#### Request Types
+```typescript
+// POST /transcribe 요청 파라미터
+interface TranscribeRequest {
+  file: File;  // multipart/form-data
+  speaker_count?: number;  // default: 2
+  language?: string;      // default: null (자동감지)
+  temperature?: number;   // default: 0.0
+  no_speech_threshold?: number;  // default: 0.6
+  initial_prompt?: string;  // default: "다음은 한국어 대화입니다."
+}
+
+// Headers
+interface RequestHeaders {
+  Authorization: string;  // JWT 토큰 또는 테스트 토큰
+}
+```
+
+#### Response Types
+```typescript
+// POST /transcribe 응답
+interface TranscribeResponse {
+  task_id: string;
+}
+
+// GET /result/{task_id} 응답
+type ResultResponse = 
+  | PendingResponse
+  | ProcessingResponse
+  | CompletedResponse
+  | FailedResponse;
+
+// 대기 중
+interface PendingResponse {
+  status: "pending";
+}
+
+// 처리 중
+interface ProcessingResponse {
+  status: "processing";
+  info: "initializing" | "transcribing" | "diarizing" | "combining";
+}
+
+// 처리 완료
+interface CompletedResponse {
+  status: "completed";
+  results: Array<{
+    speaker: number;
+    start: number;
+    end: number;
+    text: string;
+  }>;
+}
+
+// 에러 발생
+interface FailedResponse {
+  status: "failed";
+  error: string;
+}
+```
+
+#### 사용 예시
+```typescript
+// API 호출 예시
+async function transcribeAudio(file: File, options?: Partial<TranscribeRequest>) {
+  const formData = new FormData();
+  formData.append("file", file);
+  
+  if (options?.speaker_count) {
+    formData.append("speaker_count", options.speaker_count.toString());
+  }
+  // ... 다른 옵션들 추가
+
+  const response = await fetch("/transcribe", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer your_token_here"
+    },
+    body: formData
+  });
+
+  const result: TranscribeResponse = await response.json();
+  return result;
+}
+
+// 결과 조회 예시
+async function getResult(taskId: string) {
+  const response = await fetch(`/result/${taskId}`, {
+    headers: {
+      Authorization: "Bearer your_token_here"
+    }
+  });
+
+  const result: ResultResponse = await response.json();
+  
+  switch (result.status) {
+    case "completed":
+      return result.results;  // 처리 완료
+    case "processing":
+      console.log(`Processing: ${result.info}`);  // 처리 중
+      break;
+    case "failed":
+      throw new Error(result.error);  // 에러 발생
+  }
+}
 ```
 
 </details>

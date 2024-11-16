@@ -1,2 +1,8 @@
-celery
-redis 
+
+# 로그 확인
+sudo journalctl -u fastapi -f
+sudo journalctl -u celery -f
+
+# 서비스 재시작
+sudo systemctl restart fastapi
+sudo systemctl restart celery
