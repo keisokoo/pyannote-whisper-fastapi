@@ -56,7 +56,12 @@ def try_diarization(pipeline, file_path: str, speaker_count: int):
                 '-acodec', 'pcm_s16le',
                 '-ar', '16000',
                 '-ac', '1',
-                '-af', 'highpass=f=200,lowpass=f=3000,volume=1.5',
+                '-af',
+                'highpass=f=200,' +
+                'lowpass=f=3000,' +
+                'volume=1.5,' +
+                'anlmdn=s=7:p=0.002:r=0.002,' +
+                'compand=.3|.3:1|1:-90/-60|-60/-40|-40/-30|-20/-20:6:0:-90:0.2',
                 wav_path
             ], check=True)
             
