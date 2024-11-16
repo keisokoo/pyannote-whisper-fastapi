@@ -13,6 +13,8 @@ import jwt
 from datetime import datetime, timedelta
 import magic
 import subprocess
+import uuid
+from tasks import process_audio
 
 app = FastAPI()
 
@@ -213,63 +215,62 @@ async def transcribe_audio(
     try:
         # 파일 내용 읽기
         content = await file.read()
-        print(f"Request received. file name: {file.filename}, file size: {len(content)}")
-
+        
         # 파일 형식 검증
         mime = magic.Magic(mime=True)
         file_mime_type = mime.from_buffer(content)
-        print(f"File MIME type: {file_mime_type}")
-
+        
         if not is_allowed_file(content):
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"지원하지 않는 파일 형식입니다. 감지된 MIME type: {file_mime_type}"
             )
-        
-        try:
-            # MIME 타입에 따른 확장자 결정
-            ext = MIME_TO_EXT.get(file_mime_type, os.path.splitext(file.filename)[1])
-            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_file:
-                temp_file.write(content)
-                temp_path = temp_file.name
-                print(f"Temporary file saved at: {temp_path}")
 
-            # 음성 인식 수행
-            print("Starting transcription...")
-            asr_result = whisper_model.transcribe(
-                temp_path,
-                language=language,
-                temperature=temperature,
-                no_speech_threshold=no_speech_threshold,
-                initial_prompt=initial_prompt,
-                word_timestamps=True,
-                condition_on_previous_text=True,
-                fp16=False
-            )
-            print(f"Detected language: {asr_result['language']}")
-            print("Transcription completed")
+        # 임시 파일 저장
+        ext = MIME_TO_EXT.get(file_mime_type, os.path.splitext(file.filename)[1])
+        temp_path = os.path.join(tempfile.gettempdir(), f"{uuid.uuid4()}{ext}")
+        with open(temp_path, 'wb') as f:
+            f.write(content)
 
-            # 화자 분리 수행 (실패시 WAV 변환 후 재시도)
-            print("Starting diarization...")
-            diarization_result = try_diarization(temp_path, speaker_count)
-            print("Diarization completed")
+        # Celery 태스크 실행
+        task = process_audio.delay(
+            temp_path,
+            speaker_count,
+            language,
+            temperature,
+            no_speech_threshold,
+            initial_prompt
+        )
 
-            # 결과 통합
-            final_result = diarize_text(asr_result, diarization_result)
-            
-            # 임시 파일 삭제
-            os.unlink(temp_path)
-            
-            # 결과 반환
-            return format_results(final_result)
-
-        except Exception as e:
-            print(f"Error occurred: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+        # 태스크 ID 반환
+        return {"task_id": task.id}
 
     except Exception as e:
-        print(f"Error occurred: {str(e)}")
+        # 에러 발생시 임시 파일 삭제 시도
+        try:
+            os.unlink(temp_path)
+        except:
+            pass
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/result/{task_id}")
+async def get_result(task_id: str, authorization: Optional[str] = Header(None)):
+    # 토큰 검증
+    if not authorization:
+        raise HTTPException(status_code=401, detail="인증 토큰이 필요합니다.")
+    
+    if authorization != TEST_TOKEN and not verify_jwt_token(authorization):
+        raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+
+    task = process_audio.AsyncResult(task_id)
+    
+    if task.ready():
+        if task.successful():
+            return task.result
+        else:
+            raise HTTPException(status_code=500, detail=str(task.result))
+    else:
+        return {"status": "processing"}
 
 if __name__ == "__main__":
     import uvicorn

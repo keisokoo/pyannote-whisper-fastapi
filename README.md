@@ -41,53 +41,6 @@ sudo systemctl start caddy  # 도메인 사용시
 
 이하 내용은 수동 설치 및 설정에 대한 상세 가이드입니다.
 
-## 로컬 개발 환경 설정
-
-### 1. 가상환경 설정
-```shell
-# Python 3.11로 새 가상환경 생성
-python3.11 -m venv pyannote-env
-source pyannote-env/bin/activate
-
-# 필요한 패키지 설치
-pip install pyannote.audio openai-whisper git+https://github.com/keisokoo/pyannote-whisper \
-    python-dotenv fastapi python-multipart uvicorn PyJWT python-magic
-
-# OS별 추가 설치
-## macOS
-brew install libmagic
-
-# numpy 버전 다운그레이드 (필수)
-pip uninstall numpy
-pip install 'numpy<2.0'
-```
-
-### 2. 환경 변수 설정
-`.env` 파일 생성:
-```shell
-HUGGING_FACE_TOKEN=<your_hugging_face_token>
-JWT_SECRET=<your_jwt_secret>
-TEST_TOKEN=<your_test_token>
-```
-
-### 3. 서버 실행
-```shell
-python api.py
-```
-
-### 4. API 테스트
-```shell
-curl -X POST "http://localhost:8088/transcribe" \
-     -H "accept: application/json" \
-     -H "Authorization: your_token_here" \
-     -F "file=@audio.wav" \
-     -F "speaker_count=3" \
-     -F "language=ko" \
-     -F "temperature=0.0" \
-     -F "no_speech_threshold=0.6" \
-     -F "initial_prompt=다음은 한국어 대화입니다."
-```
-
 ## 서버 배포 가이드
 
 ### 1. GCP Compute Engine 설정
@@ -99,11 +52,11 @@ conda activate pyannote
 
 # 시스템 패키지 설치
 sudo apt update
-sudo apt install -y ffmpeg libsndfile1-dev libmagic1 sox libsox-fmt-all
+sudo apt install -y ffmpeg libsndfile1-dev libmagic1 sox libsox-fmt-all redis-server
 
 # Python 패키지 설치
 pip install pyannote.audio openai-whisper git+https://github.com/keisokoo/pyannote-whisper \
-    python-dotenv fastapi python-multipart uvicorn PyJWT python-magic
+    python-dotenv fastapi python-multipart uvicorn PyJWT python-magic celery[redis] redis
 
 # numpy 다운그레이드
 pip uninstall numpy
@@ -183,12 +136,17 @@ sudo systemctl status caddy
 
 ### 5. 서비스 설정
 
-서비스 파일 생성:
+Redis 서비스 확인:
+```shell
+sudo systemctl status redis-server
+```
+
+FastAPI 서비스 파일 생성:
 ```shell
 sudo vi /etc/systemd/system/fastapi.service
 ```
 
-서비스 파일 내용:
+FastAPI 서비스 파일 내용:
 ```ini
 [Unit]
 Description=FastAPI Whisper Service
@@ -204,20 +162,54 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
+Celery 워커 서비스 파일 생성:
+```shell
+sudo vi /etc/systemd/system/celery.service
+```
+
+Celery 서비스 파일 내용:
+```ini
+[Unit]
+Description=Celery Worker Service
+After=network.target redis-server.service
+
+[Service]
+Type=simple
+User=sokoo
+WorkingDirectory=/home/sokoo/pyannote-whisper-fastapi
+Environment=PYTHONPATH=/home/sokoo/pyannote-whisper-fastapi
+ExecStart=/opt/conda/envs/pyannote/bin/celery -A tasks worker --loglevel=info
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
+```
+
 서비스 관리:
 ```shell
+# 서비스 파일 리로드
+sudo systemctl daemon-reload
+
 # 서비스 시작
 sudo systemctl start fastapi
+sudo systemctl start celery
+
+# 서비스 자동 시작 설정
 sudo systemctl enable fastapi
+sudo systemctl enable celery
 
 # 상태 확인
 sudo systemctl status fastapi
+sudo systemctl status celery
 
 # 로그 확인
 sudo journalctl -u fastapi -f
+sudo journalctl -u celery -f
 
 # 서비스 재시작
 sudo systemctl restart fastapi
+sudo systemctl restart celery
 ```
 
 </details>
@@ -256,6 +248,8 @@ sudo systemctl restart fastapi
 
 ### POST /transcribe
 
+오디오 파일을 업로드하고 처리를 시작합니다.
+
 **Content-Type**: `multipart/form-data`
 
 #### Request Parameters
@@ -278,7 +272,6 @@ sudo systemctl restart fastapi
 #### 예제 요청
 ```bash
 curl -X POST "http://localhost:8088/transcribe" \
-     -H "accept: application/json" \
      -H "Authorization: your_token_here" \
      -F "file=@audio.wav" \
      -F "speaker_count=3" \
@@ -289,6 +282,29 @@ curl -X POST "http://localhost:8088/transcribe" \
 ```
 
 #### 응답 형식
+```json
+{
+    "task_id": "1234-5678-90ab-cdef"
+}
+```
+
+### GET /result/{task_id}
+
+처리 상태와 결과를 확인합니다.
+
+#### Headers
+| 헤더 | 필수 | 설명 |
+|------|------|------|
+| Authorization | ✓ | JWT 토큰 또는 테스트 토큰 |
+
+#### 처리 중 응답
+```json
+{
+    "status": "processing"
+}
+```
+
+#### 처리 완료 응답
 ```json
 {
     "results": [
@@ -306,6 +322,19 @@ curl -X POST "http://localhost:8088/transcribe" \
         }
     ]
 }
+```
+
+#### 에러 응답
+```json
+{
+    "detail": "에러 메시지"
+}
+```
+
+#### 예제 요청
+```bash
+curl -X GET "http://localhost:8088/result/1234-5678-90ab-cdef" \
+     -H "Authorization: your_token_here"
 ```
 
 </details>

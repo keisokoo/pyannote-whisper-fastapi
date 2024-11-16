@@ -11,7 +11,7 @@ echo -e "${GREEN}Pyannote-Whisper FastAPI Server 설치를 시작합니다...${N
 # 시스템 패키지 설치
 echo -e "\n${YELLOW}시스템 패키지 설치 중...${NC}"
 sudo apt update
-sudo apt install -y ffmpeg libsndfile1-dev libmagic1 sox libsox-fmt-all
+sudo apt install -y ffmpeg libsndfile1-dev libmagic1 sox libsox-fmt-all redis-server
 
 # Conda 환경 확인 및 생성
 if ! command -v conda &> /dev/null; then
@@ -28,7 +28,7 @@ conda activate pyannote
 # Python 패키지 설치
 echo -e "\n${YELLOW}Python 패키지 설치 중...${NC}"
 pip install pyannote.audio openai-whisper git+https://github.com/keisokoo/pyannote-whisper \
-    python-dotenv fastapi python-multipart uvicorn PyJWT python-magic
+    python-dotenv fastapi python-multipart uvicorn PyJWT python-magic celery[redis] redis
 
 # numpy 다운그레이드
 echo -e "\n${YELLOW}numpy 다운그레이드 중...${NC}"
@@ -63,13 +63,34 @@ Restart=always
 WantedBy=multi-user.target
 EOL
 
+# Celery 서비스 파일 생성
+echo -e "\n${YELLOW}Celery 서비스 파일 생성 중...${NC}"
+sudo tee /etc/systemd/system/celery.service > /dev/null << EOL
+[Unit]
+Description=Celery Worker Service
+After=network.target redis-server.service
+
+[Service]
+User=$USER
+WorkingDirectory=$PWD
+Environment=PYTHONPATH=$PWD
+ExecStart=/opt/conda/envs/pyannote/bin/celery -A tasks worker --loglevel=info
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
 # 서비스 활성화
 echo -e "\n${YELLOW}서비스 활성화 중...${NC}"
 sudo systemctl daemon-reload
 sudo systemctl enable fastapi
-
+sudo systemctl enable celery
 echo -e "\n${GREEN}설치가 완료되었습니다!${NC}"
 echo -e "${YELLOW}다음 단계:${NC}"
 echo "1. .env 파일에 토큰 값을 설정해주세요"
 echo "2. 'sudo systemctl start fastapi' 명령으로 서비스를 시작할 수 있습니다"
-echo "3. 'sudo systemctl status fastapi' 명령으로 서비스 상태를 확인할 수 있습니다" 
+echo "3. 'sudo systemctl start celery' 명령으로 Celery 워커를 시작할 수 있습니다"
+echo "4. 'sudo systemctl status fastapi' 명령으로 서비스 상태를 확인할 수 있습니다" 
+echo "5. 'sudo systemctl status celery' 명령으로 Celery 상태를 확인할 수 있습니다" 
