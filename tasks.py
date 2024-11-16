@@ -1,4 +1,4 @@
-from celery import Celery
+from celery import Celery, signals
 import whisper
 from pyannote.audio import Pipeline
 import torch
@@ -104,10 +104,6 @@ def initialize_models():
 def setup_periodic_tasks(sender, **kwargs):
     pass  # beat 관련 태스크가 필요한 경우에만 사용
 
-@celery_app.signals.worker_init.connect
-def init_worker(**kwargs):
-    initialize_models()
-
 @celery_app.task(name='tasks.process_audio', bind=True)
 def process_audio(self, file_path: str, speaker_count: int, language: str = None,
                  temperature: float = 0.0, no_speech_threshold: float = 0.6,
@@ -117,7 +113,7 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         self.update_state(state='PROGRESS', meta={'status': 'initializing'})
         logger.info(f"Starting audio processing task: {self.request.id}")
         
-        # 모델이 초기화되지 않은 경우를 위한 안전장치는 유지
+        # 모델이 초기화되지 않은 경우 초기화
         global whisper_model, pipeline
         if whisper_model is None or pipeline is None:
             initialize_models()
