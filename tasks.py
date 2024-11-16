@@ -138,8 +138,7 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
             initial_prompt=initial_prompt,
             word_timestamps=True,
             condition_on_previous_text=True,
-            fp16=False
-            # 추가 옵션들
+            fp16=False,
             suppress_tokens=[-1],  # 특수 토큰 억제
             sample_len=None,      # 샘플 길이 제한
             best_of=5,            # 가장 좋은 결과 선택
