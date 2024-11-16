@@ -6,3 +6,5 @@ sudo journalctl -u celery -f
 # 서비스 재시작
 sudo systemctl restart fastapi
 sudo systemctl restart celery
+
+git pull origin master && sudo systemctl restart fastapi 
