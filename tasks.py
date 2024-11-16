@@ -106,7 +106,7 @@ def setup_periodic_tasks(sender, **kwargs):
 
 @celery_app.task(name='tasks.process_audio', bind=True)
 def process_audio(self, file_path: str, speaker_count: int, language: str = None,
-                 temperature: float = 0.0, no_speech_threshold: float = 0.6,
+                 temperature: float = 0.0, no_speech_threshold: float = 0.8,
                  initial_prompt: str = "다음은 한국어 대화입니다."):
     try:
         # 작업 시작 상태 업데이트
@@ -156,7 +156,7 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         # 임시 파일 삭제
         os.unlink(file_path)
         logger.info("Temporary file deleted")
-        print("final_result", final_result)
+        
         # 결과 포맷팅
         results = []
         for segment, speaker, text in final_result:
