@@ -264,13 +264,16 @@ async def get_result(task_id: str, authorization: Optional[str] = Header(None)):
 
     task = process_audio.AsyncResult(task_id)
     
-    if task.ready():
-        if task.successful():
-            return task.result
-        else:
-            raise HTTPException(status_code=500, detail=str(task.result))
+    if task.state == 'PENDING':
+        return {"status": "pending"}
+    elif task.state == 'PROGRESS':
+        return {"status": "processing", "info": task.info.get('status', '')}
+    elif task.state == 'SUCCESS':
+        return task.result
+    elif task.state == 'FAILURE':
+        return {"status": "failed", "error": str(task.result)}
     else:
-        return {"status": "processing"}
+        return {"status": task.state}
 
 if __name__ == "__main__":
     import uvicorn

@@ -94,13 +94,19 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
                  temperature: float = 0.0, no_speech_threshold: float = 0.6,
                  initial_prompt: str = "다음은 한국어 대화입니다."):
     try:
+        # 작업 시작 상태 업데이트
+        self.update_state(state='PROGRESS', meta={'status': 'starting'})
         logger.info(f"Starting audio processing task: {self.request.id}")
-        logger.info(f"File path: {file_path}")
         
         # 파일 존재 확인
         if not os.path.exists(file_path):
+            self.update_state(state='FAILURE', meta={'error': 'File not found'})
             raise FileNotFoundError(f"File not found: {file_path}")
-            
+        
+        # Whisper 처리 시작
+        self.update_state(state='PROGRESS', meta={'status': 'transcribing'})
+        logger.info(f"File path: {file_path}")
+        
         # 음성 인식
         logger.info("Starting whisper transcription...")
         asr_result = whisper_model.transcribe(
@@ -150,6 +156,7 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
         return {"results": results, "status": "completed"}
 
     except Exception as e:
+        self.update_state(state='FAILURE', meta={'error': str(e)})
         logger.error(f"Error in process_audio: {str(e)}", exc_info=True)
         # 에러 발생시 임시 파일 삭제 시도
         try:
