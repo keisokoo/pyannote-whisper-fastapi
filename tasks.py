@@ -144,7 +144,7 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
                 logprob_threshold=-0.8
             )
             logger.info("Whisper transcription completed")
-          except Exception as e:
+        except Exception as e:
             logger.error(f"Whisper transcription failed: {str(e)}", exc_info=True)
             raise RuntimeError(f"Transcription failed: {str(e)}")
         
