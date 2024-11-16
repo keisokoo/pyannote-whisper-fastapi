@@ -107,7 +107,7 @@ def setup_periodic_tasks(sender, **kwargs):
 
 @celery_app.task(name='tasks.process_audio', bind=True)
 def process_audio(self, file_path: str, speaker_count: int, language: str = None,
-                 temperature: float = 0.0, no_speech_threshold: float = 0.8,
+                 temperature: float = 0.0, no_speech_threshold: float = 0.7,
                  initial_prompt: str = "다음은 한국어 대화입니다."):
     try:
         # 작업 시작 상태 업데이트
@@ -139,13 +139,8 @@ def process_audio(self, file_path: str, speaker_count: int, language: str = None
             word_timestamps=True,
             condition_on_previous_text=True,
             fp16=False,
-            suppress_tokens=[-1],  # 특수 토큰 억제
-            sample_len=None,      # 샘플 길이 제한
-            best_of=5,            # 가장 좋은 결과 선택
-            patience=1,           # beam search patience
-            compression_ratio_threshold=2.0,  # 압축률 임계값
-            logprob_threshold=-1.0,          # 로그 확률 임계값
-            silence_threshold=0.5            # 무음 임계값
+            compression_ratio_threshold=2.0,
+            logprob_threshold=-0.8
         )
         logger.info("Whisper transcription completed")
 
