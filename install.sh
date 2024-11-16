@@ -75,7 +75,7 @@ Type=simple
 User=sokoo
 WorkingDirectory=/home/sokoo/pyannote-whisper-fastapi
 Environment=PYTHONPATH=/home/sokoo/pyannote-whisper-fastapi
-ExecStart=/opt/conda/envs/pyannote/bin/celery -A tasks worker --loglevel=info
+ExecStart=/opt/conda/envs/pyannote/bin/celery -A tasks worker --concurrency=1 --loglevel=info
 Restart=always
 RestartSec=10s
 
